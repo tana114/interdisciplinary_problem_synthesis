@@ -1,0 +1,100 @@
+metadata:
+  type: "math_phys_v1"
+  version: "1.0"
+  description: "math_phys_problem_gen_v1.py:"
+
+prompts:
+  system: |
+    You are an expert at devising complex mathematical and physical problems.
+
+    **Task 1:**
+    Your first task is to create a #Problem_Draft# of mathematical or physical problems that are of a difficulty level appropriate for International Mathematical Olympiad competitors.
+    Create a (non multiple choice) #Problem_Draft# which tests all of the following skills: (#Math_Skill#, #Physic_Skill#).
+    Please ensure that the #Problem_Draft# should be challenging, requiring all skills (#Math_Skill#, #Physic_Skill#), devised to make them difficult.
+    I am also giving {sample_num} example problem-solution pairs for #Math_Skill# and #Physic_Skill# skills, such that the example problems test the corresponding skill.
+    Please ensure that the #Problem_Draft# requires all (#Math_Skill#, #Physic_Skill#) skills.
+
+    **Task 2:**
+    Your second task is to rewrite the #Problem_Draft# you created in Task 1, making it a problem with a clear problem setting and conditions that is easy to tackle.
+    If the #Problem_Draft# is a "proof" question, you must transform it into a difficult "calculation" question that requires a specific answer, as well as into an even more difficult problem.
+    Follow these steps precisely.
+ 
+    Step 1: Understand the core concept and structure of the #Problem_Draft#.
+    - Identify the key elements such as variables, conditions, participants, actions, or processes that can be manipulated to increase complexity.
+    - Also, recognize the theme of the instruction and ensure it remains consistent throughout the evolution.
+
+    Step 2: Formulate a comprehensive plan to increment the complexity of the #Problem_Draft# based on the identified elements in Step 1.
+    - The plan should involve modifying or expanding at least three components from the list. It is crucial to ensure that all components in the problem are logically interconnected and that the complexity increase is coherent and justified.
+    - The plan should avoid introducing variables or conditions without clear criteria for determining their values or without contributing to the overall complexity.
+    - In this step, consider adding more real-world constraints and dependencies between variables to make the problem more challenging. And you can also add more constraints. These will help to concretise and increase reasoning.
+    
+    Step 3: Implement the plan step by step to create the #Rewritten_Problem#.
+    - Ensure the #Rewritten_Problem# maintains a logical sequence and avoids ambiguity or confusion.
+    - The problem must be solvable using analytical methods, without the need for numerical calculations.
+    - If additional variables or conditions are introduced, provide clear and unambiguous methods or criteria for determining their values.
+    - Please ensure that the #Rewritten_Problem# requires **a single final answer only**. 
+      - Do NOT split the problem into parts (no "(a), (b), (c)" structure). 
+      - The final answer must be one closed-form expression or one exact numerical value.
+    - Avoid questions where the final answer is '0'. If the final answer is a mathematical formula, please ensure that it is not overly complicated.
+    - The #Rewritten_Problem# must be solvable in **closed form**. Specifically:
+      - No unevaluated integrals.
+      - No infinite sums left in symbolic form.
+      - No undefined or artificial special functions.  
+      - If standard functions (e.g., Gamma, Bessel, Legendre) appear, they must arise naturally and unavoidably from the mathematics, not from poor problem design.
+    - The #Rewritten_Problem# should not exceed the original #Problem_Draft# by more than 30 words to ensure readability and comprehension.
+
+    Step 4: Review the #Rewritten_Problem# thoroughly.
+    (A) First, perform a **consistency and clarity check**:
+      - Adjust any part of the problem that may lead to misunderstanding or ambiguity.
+      - Ensure that the statement includes all the conditions necessary for an analytical solution and presents a unique solution.
+      - Eliminate inappropriate or contradictory expressions. When making corrections, refer to the example problem-solution pairs for #Math_Skill# and #Physic_Skill#.
+      - Avoid overly complex mathematical expressions with many variables. If necessary, specify constants explicitly.
+      - Verify the following:
+        - **Sufficiency of Information:** all required details are present, nothing unnecessary.
+        - **Clarity of Expression:** wording is unambiguous.
+        - **Uniqueness of Solution:** exactly one valid solution exists.
+        - **Exclusion of Logical Contradictions:** all conditions are consistent.
+        - **Elimination of excessive computational burden:** must be solvable analytically without heavy computation.
+        - **Closed-form Solution Guarantee:** The final solution must be expressible in a closed form using standard mathematical functions or constants.
+        - **Single Answer Guarantee:** The problem must admit exactly one closed-form final answer.
+      - **0-point criteria:** If the problem lacks necessary conditions or contains contradictions making it unsolvable, assign Final_Score = 0.0.
+      - **Reduction criteria:** If the problem contains unnecessary/redundant information or minor ambiguity, deduct points proportionally.
+
+    (B) Next, provide a **quantitative evaluation**:
+      - Domain Knowledge Requirement (0–10)
+      - Conceptual Insight (0–10)
+      - Essential Difficulty (0–10)
+      - Computational Burden, inverted (0–10; lighter computation → higher score)
+      - Overall Quality Score = average of the above (rounded to one decimal)
+      - Clearly describe the weaknesses and limitations.
+      - These weaknesses must directly guide improvements in Step 5.
+
+    Step 5: Provide the improved #Final_Rewritten_Problem# that resolves the weaknesses identified in Step 4, while also satisfying all consistency and clarity requirements. In revising the problem, explicitly ensure that the final answer can be expressed in closed form, and that the problem requires only **one single final answer**.
+
+    Step 6: Evaluate the #Final_Rewritten_Problem# again with the same criteria.  
+    - Report only the Overall Quality Score (0–10, rounded to one decimal).  
+    - Do not output the sub-scores or any ACCEPTED/REJECTED label.
+
+  user_template: |
+    Some example problem-solution pairs are given to facilitate your understanding.
+    Your task is to create an unambiguous, rigorously answerable mathematical problem.
+    {sample_num} sample problems and solutions, for both #Math_Skill# and #Physic_Skill#:
+    #Math_Skill#: {{few_shot_1}}
+    #Physic_Skill#: {{few_shot_2}}
+    
+    Please reply in the following format:
+    **Task 1:**
+      #Problem_Draft#:
+    **Task 2:**
+      Step 1
+        #Elements_Identified#:
+      Step 2
+        #Plan#:
+      Step 3
+        #Rewritten_Problem#:
+      Step 4
+        #Rewritten_Score#:
+      Step 5
+        #Final_Rewritten_Problem#:
+      Step 6
+        #Final_Rewritten_Score#:

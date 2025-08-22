@@ -1,0 +1,24 @@
+versions:
+  - type: "math_phys_v0"
+    version: "0.0"
+    file: "versions/math_phys_v0.0.yaml"
+    status: "deprecated"
+    description: "math_phys_problem_gen_v0.py:"
+
+  - type: "math_phys_v1"
+    version: "1.0"
+    file: "versions/math_phys_v1.0.yaml"
+    status: "active"
+    description: "math_phys_problem_gen.py:"
+
+  - type: "simple_answer_v1"
+    version: "1.0"
+    file: "versions/simple_answer_v1.0.yaml"
+    status: "active"
+    description: "simple_answer_gen.py:"
+
+  - type: "tex2sympy"
+    version: "1.0"
+    file: "versions/tex2sympy_v1.0.yaml"
+    status: "active"
+    description: "tex2sympy_gen.py:"
