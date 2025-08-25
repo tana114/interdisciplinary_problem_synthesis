@@ -130,7 +130,7 @@ class RolloutManager(object):
                     "reasoning": None
                 }
 
-            '''動作確認用'''
+            # '''動作確認用'''
             # sympy_ans = random.sample(["a**2+2*a*b+b**2", "(a+b)**2", "3", "c**2+4,(a+b)**3"], 1)
             # ans_str = str(sympy_ans[0])
             #
@@ -311,15 +311,15 @@ if __name__ == "__main__":
         seed_name=["OB_PHYS_problem", ],
         output_file_decoration="-v1.0_rollout",
         start_id=1,
-        end_id=100,
+        end_id=2,
     )
     
     data_config = HfRolloutConfig(**test_cfg)
-    # rom(data_config)
+    rom(data_config)
 
-    # huggingfaceの設定ファイルを作成（値を指定していない場合はpushしない）
-    hf_repo_id = "tarona/MathXPhys_scored_v1"
-    hf_config_name ="OB_PHYS_rollout"
-    hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)
-    
-    rom(data_config, hf_cfg)
+    # # huggingfaceの設定ファイルを作成（値を指定していない場合はpushしない）
+    # hf_repo_id = "tarona/MathXPhys_scored_v1"
+    # hf_config_name ="OB_PHYS_rollout"
+    # hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)
+    #
+    # rom(data_config, hf_cfg)
