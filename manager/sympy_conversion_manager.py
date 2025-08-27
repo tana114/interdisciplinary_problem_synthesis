@@ -38,7 +38,6 @@ class HfSympyConfig:
     seed_split: str = "train"
     output_file_decoration: str = "_"  # 生成したファイルのファイル名に追加する文字列
     batch_size: int = 1  # 生成処理を何個づつまとめて実施して保存するか（基本1で良い）
-    # final_score_threshold: float = 7.0  # "final_score"がこの値以上物をRollout対象とする
     seed_data_keys: Set[str] = field(default_factory=lambda: {"id", "rollout", "answer" })
 
 
@@ -48,12 +47,10 @@ class SympyConversionManager(object):
     def __init__(
             self,
             model_name:str,
-            # num_of_rollout: int = 10,
     ):
         """
         """
         self._model = model_name
-        # self._num_of_rollout = num_of_rollout
 
     def __call__(
             self,
@@ -143,6 +140,7 @@ class SympyConversionManager(object):
         jlh = JsonlHandler()
 
         # データセットの読み込み
+        # rm -r ~/.cache/huggingface/datasets/tarona___math_x_phys_scored_v1
         if seed_name:
             dfs = [load_dataset(seed_repo_id, name=n, split=seed_split).to_pandas() for n in seed_name]
             df = pd.concat(dfs, ignore_index=True)
@@ -156,7 +154,7 @@ class SympyConversionManager(object):
             error_msg = f"Key required for dictionary data is missing.\n Missing keys: {missing_keys}\n repo_id: {seed_repo_id}"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         start_id = manager_cfg.start_id
         end_id = manager_cfg.end_id
 
@@ -164,6 +162,7 @@ class SympyConversionManager(object):
             df = df[df['id'].between(start_id, end_id, inclusive='both')]
         else:
             df = df[df['id'].between(start_id, df['id'].max(), inclusive='both')]
+
 
         ''' 処理を効率化するためにidをkeyにした辞書型に変換。↓これでもとに戻る
         def flatten_nested_dict(nested_dict):
@@ -231,8 +230,8 @@ if __name__ == "__main__":
         seed_repo_id="tarona/MathXPhys_scored_v1",
         seed_name=["OB_PHYS_rollout", ],
         output_file_decoration="-v1.0_rollout_sympy",
-        start_id=1,
-        end_id=100,
+        start_id=101,
+        end_id=200,
     )
     
     data_config = HfSympyConfig(**test_cfg)

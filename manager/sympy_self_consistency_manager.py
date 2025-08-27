@@ -223,7 +223,7 @@ if __name__ == "__main__":
         seed_name=["OB_PHYS_rollout_sympy", ],
         output_file_decoration="-v1.0_self_consistency",
         start_id=1,
-        end_id=100,
+        end_id=200,
     )
 
     data_config = HfSympySelfConsistencyConfig(**test_cfg)
