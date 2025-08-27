@@ -310,8 +310,8 @@ if __name__ == "__main__":
         seed_repo_id="tarona/MathXPhys_scored_v1",
         seed_name=["OB_PHYS_problem", ],
         output_file_decoration="-v1.0_rollout",
-        start_id=1,
-        end_id=2,
+        start_id=201,
+        end_id=300,
     )
     
     data_config = HfRolloutConfig(**test_cfg)

@@ -135,7 +135,7 @@ class ApiClientBase(metaclass=ABCMeta):
             logger.warning(f"pydantic ValidationError occurred in the API request: {e} ")
             return None
 
-''' ----------- simple example ------------ '''
+''' ----------- A Simple Example of Using ApiClientBase ------------ '''
 
 class SolutionDate(BaseModel):
     """ Final answer to the question. """

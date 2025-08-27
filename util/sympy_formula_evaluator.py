@@ -89,9 +89,18 @@ class SymPyFormulaEvaluator:
             formula_str1: str,
             formula_str2: str,
     ) -> bool:
-        # print(formula_str1)
-        # print(formula_str2)
-        # print('---------------')
+
+        # 文字数が長すぎるものを排除（300文字）
+        # 文字数が長すぎるものはsympyでの検証が困難である上に、そもそも問題として不適切である可能性があるので排除する。
+        length_threshold = 300
+        if len(formula_str1)> length_threshold:
+            logger.debug("formula_str1の文字数が長すぎます。等価性を否定します。")
+            return False
+
+        if len(formula_str2)> length_threshold:
+            logger.debug("formula_str2の文字数が長すぎます。等価性を否定します。")
+            return False
+
         formula1 = self.sympify_formula(formula_str1)
         if formula1 is None:
             logger.debug("formula_str1のsympy変換に失敗しました。等価性を否定します。")

@@ -10,11 +10,7 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict, load_dataset
 import pandas as pd
 
-# from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
-
-# from project.eval.client.simple_api import OpenRouterSimpleClient
-# from client.concrete.simple_answer_gen import SimpleAnswerGenerator
 from client.concrete.tex2sympy_gen import SympyConversionGenerator
 
 from util.file_tools import JsonHandler, JsonlHandler

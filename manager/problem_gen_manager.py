@@ -347,8 +347,8 @@ if __name__ == "__main__":
     test_cfg = dict(
         output_dir='./data/problem/',
         output_file_decoration="math_phys_problem_v1.0",
-        # num_of_generate=1000,
-        num_of_generate=415,
+        num_of_generate=1000,
+        # num_of_generate=415,
         batch_size=1,
         num_of_few_shot=3,
     )

@@ -94,12 +94,14 @@ class ApiClientBase(metaclass=ABCMeta):
 
             config: Dict = self._create_message_config(prompt_elements)
             merged_dict = config | kwargs
-            
+
             ''' ------------------------------------ '''
             ApiClientBase.message_counter += 1
             logger.info(f"message requests : {ApiClientBase.message_counter}")
             ''' ------------------------------------ '''
+
             response = self._client.chat.completions.create(**merged_dict)
+
             if response:
                 return response.choices[0].message
             else:
@@ -109,6 +111,8 @@ class ApiClientBase(metaclass=ABCMeta):
             delay = 10
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
+            ApiClientBase.message_counter -= 1
+            return self.message(prompt_elements, **kwargs)
 
         except json.JSONDecodeError as e:
             logger.warning(f" JSONDEcodeError during API request: {e} ")
@@ -134,11 +138,12 @@ class ApiClientBase(metaclass=ABCMeta):
         try:
             config: Dict = self._create_parse_config(prompt_elements)
             merged_dict = config | kwargs
-            
+
             ''' ------------------------------------ '''
             ApiClientBase.parse_counter += 1
             logger.info(f"parse requests : {ApiClientBase.parse_counter}")
             ''' ------------------------------------ '''
+
             # print(merged_dict)
             response = self._client.chat.completions.parse(**merged_dict)
 
@@ -152,6 +157,8 @@ class ApiClientBase(metaclass=ABCMeta):
             delay = 10
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
+            ApiClientBase.parse_counter -= 1
+            return self.parse(prompt_elements, **kwargs)
 
         except json.JSONDecodeError as e:
             logger.warning(f" JSONDEcodeError during API request: {e} ")
@@ -161,7 +168,7 @@ class ApiClientBase(metaclass=ABCMeta):
             logger.warning(f"pydantic ValidationError occurred in the API request: {e} ")
             return None
 
-''' ----------- simple example ------------ '''
+''' ----------- A Simple Example of Using ApiClientBase ------------ '''
 
 class SolutionDate(BaseModel):
     """ Final answer to the question. """
