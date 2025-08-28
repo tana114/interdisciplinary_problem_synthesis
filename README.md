@@ -58,4 +58,4 @@ HF_TOKEN=your_token_here
 ```
 
 ## Conclusion
-We have generated synthetic data intended for training large language models (LLMs). However, due to our limited experience training LLMs, we have not verified the dataset's effectiveness. We would appreciate it if someone could evaluate the dataset and share the results.
+We have generated synthetic data intended for training large language models (LLMs). However, due to our limited experience of training LLMs and the lack of an execution environment, we have been unable to verify the dataset's validity. We would appreciate it if someone could evaluate the dataset and share the results.
