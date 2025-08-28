@@ -6,7 +6,7 @@ By combining problems from different fields, we generate new interdisciplinary p
 
 - Generate drafts for cross-domain problems by using problems from different fields as seeds.
 - Apply methods such as [evol-instruct](https://arxiv.org/abs/2306.08568) and [WizardMath](https://arxiv.org/abs/2308.09583) to refine drafts.
-- Introduce quantitative indicators to assess problem quality and use them as criteria for revision. Problems with low computational cost and high intrinsic difficulty are considered high-quality. By iteratively revising and scoring problems, we produce higher-quality synthetic problems.
+- Introduce quantitative indicators to assess problem quality and use them as criteria for revision. Problems with low calculation cost and high intrinsic difficulty are considered high-quality. By iteratively revising and scoring problems, we produce higher-quality synthetic problems.
 
 ### Step 2 — Answer generation
 
