@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Generator, Dict, Optional, Literal, TypedDict, List, Any, Set
 import os
-import random
 
 from tqdm.auto import tqdm
 
@@ -25,9 +24,9 @@ logger.addHandler(NullHandler())
 @dataclass
 class HfSympyConfig:
     """
-    huggingface dataset
+    Hugging Face dataset.
 
-    "id", "rollout", "answer" カラムが必要
+    Columns "id", "rollout", and "answer" are required.
 
     """
     output_dir: str
@@ -36,8 +35,8 @@ class HfSympyConfig:
     end_id: Optional[int]
     start_id: int = 1
     seed_split: str = "train"
-    output_file_decoration: str = "_"  # 生成したファイルのファイル名に追加する文字列
-    batch_size: int = 1  # 生成処理を何個づつまとめて実施して保存するか（基本1で良い）
+    output_file_decoration: str = "_"  # string appended to generated file names
+    batch_size: int = 1  # how many items to generate and save at once (1 is usually fine)
     seed_data_keys: Set[str] = field(default_factory=lambda: {"id", "rollout", "answer" })
 
 
@@ -104,9 +103,6 @@ class SympyConversionManager(object):
 
     @staticmethod
     def update_or_append_efficient(original_list, new_list):
-        """
-        より効率的な方法（大きなリストの場合に有利）
-        """
         # 辞書に変換（idをキーとして）
         item_dict = {item["id"]: item for item in original_list}
 
@@ -136,10 +132,10 @@ class SympyConversionManager(object):
         if not fp_output_file.parent.exists():
             fp_output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # jsonlファイルを読み書きするツール
+        # tool for reading/writing jsonl files
         jlh = JsonlHandler()
 
-        # データセットの読み込み
+        # Load dataset
         # rm -r ~/.cache/huggingface/datasets/tarona___math_x_phys_scored_v1
         if seed_name:
             dfs = [load_dataset(seed_repo_id, name=n, split=seed_split).to_pandas() for n in seed_name]
@@ -164,7 +160,7 @@ class SympyConversionManager(object):
             df = df[df['id'].between(start_id, df['id'].max(), inclusive='both')]
 
 
-        ''' 処理を効率化するためにidをkeyにした辞書型に変換。↓これでもとに戻る
+        ''' To speed up processing, convert to a dict keyed by id. It can be converted back like this:
         def flatten_nested_dict(nested_dict):
             result = []
             for id_dict in nested_dict.values():
@@ -193,7 +189,7 @@ class SympyConversionManager(object):
                     result.append(item)
             jlh.write(result, str(fp_output_file))
 
-        # huggingfaceにpush
+        # push to Hugging Face
         if hf_cfg is not None and hf_cfg.repo_id:
             dataset = Dataset.from_pandas(pd.read_json(fp_output_file, lines=True))
             dataset_dict = DatasetDict(
@@ -237,7 +233,7 @@ if __name__ == "__main__":
     data_config = HfSympyConfig(**test_cfg)
     # rom(data_config)
 
-    # huggingfaceの設定ファイルを作成（値を指定していない場合はpushしない）
+    # Create Huggingface config file (It will not push if the config are not specified)
     hf_repo_id = "tarona/MathXPhys_scored_v1"
     hf_config_name ="OB_PHYS_rollout_sympy"
     hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)

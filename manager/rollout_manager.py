@@ -10,10 +10,6 @@ from pathlib import Path
 from datasets import Dataset, DatasetDict, load_dataset
 import pandas as pd
 
-# from openai.types.chat.chat_completion_message import ChatCompletionMessage
-
-
-# from project.eval.client.simple_api import OpenRouterSimpleClient
 from client.concrete.simple_answer_gen import SimpleAnswerGenerator
 
 from util.file_tools import JsonHandler, JsonlHandler
@@ -28,10 +24,10 @@ logger.addHandler(NullHandler())
 @dataclass
 class HfRolloutConfig:
     """
-    huggingface dataset
+    Hugging Face dataset.
 
-    "id", "question", "final_score" カラムが必要
-    "final_score"は合成した"question"の問題文としての品質を数値化したもの
+    The dataset must contain the columns: "id", "question", and "final_score".
+    "final_score" is a numeric quality score that measures the quality of the synthesized "question" text.
 
     """
     output_dir: str
@@ -40,11 +36,10 @@ class HfRolloutConfig:
     end_id: Optional[int]
     start_id: int = 1
     seed_split: str = "train"
-    output_file_decoration: str = "_"  # 生成したファイルのファイル名に追加する文字列
-    batch_size: int = 1  # 生成処理を何個づつまとめて実施して保存するか（基本1で良い）
-    final_score_threshold: float = 7.0  # "final_score"がこの値以上物をRollout対象とする
-    seed_data_keys: Set[str] = field(default_factory=lambda: {"id", "question", "final_score" })
-
+    output_file_decoration: str = "_"  # String appended to generated filenames
+    batch_size: int = 1  # Number of items to process per generation/save batch (default 1)
+    final_score_threshold: float = 7.0  # Only items with "final_score" above this threshold are considered for rollout
+    seed_data_keys: Set[str] = field(default_factory=lambda: {"id", "question", "final_score"})
 
 
 def extract_last_boxed(text: str) -> str | None:
@@ -73,7 +68,7 @@ def extract_last_boxed(text: str) -> str | None:
 class RolloutManager(object):
     def __init__(
             self,
-            model_name:str,
+            model_name: str,
             num_of_rollout: int = 10,
     ):
         """
@@ -101,7 +96,7 @@ class RolloutManager(object):
             }
 
             conversations = []
-            
+
             answer_gen = SimpleAnswerGenerator(self._model)
 
             message = answer_gen.message(
@@ -114,7 +109,7 @@ class RolloutManager(object):
                 msg = message.to_dict()
                 output = msg.get('content', '')
                 reasoning = msg.get('reasoning', '')
-                answer =  extract_last_boxed(str(output))
+                answer = extract_last_boxed(str(output))
 
                 gen_data = {
                     "id": seed_id,
@@ -130,7 +125,7 @@ class RolloutManager(object):
                     "reasoning": None
                 }
 
-            # '''動作確認用'''
+            # '''For testing / sanity check'''
             # sympy_ans = random.sample(["a**2+2*a*b+b**2", "(a+b)**2", "3", "c**2+4,(a+b)**3"], 1)
             # ans_str = str(sympy_ans[0])
             #
@@ -164,10 +159,10 @@ class RolloutManager(object):
         if not fp_output_file.parent.exists():
             fp_output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # jsonファイルを読み書きするツール
+        # Tool for reading/writing JSON files
         jh = JsonHandler()
 
-        # データセットの読み込み
+        # Load dataset
         if seed_name:
             dfs = [load_dataset(seed_repo_id, name=n, split=seed_split).to_pandas() for n in seed_name]
             df = pd.concat(dfs, ignore_index=True)
@@ -181,7 +176,7 @@ class RolloutManager(object):
             error_msg = f"Key required for dictionary data is missing.\n Missing keys: {missing_keys}\n repo_id: {cfg.seed_repo_id}"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         start_id = manager_cfg.start_id
         end_id = manager_cfg.end_id
 
@@ -190,13 +185,14 @@ class RolloutManager(object):
         else:
             df = df[df['id'].between(start_id, df['id'].max(), inclusive='both')]
 
-        # final_score > score_threshold の行を抽出
+        # Filter rows where final_score > score_threshold
         score_threshold = manager_cfg.final_score_threshold
         df = df[df['final_score'] > score_threshold]
 
         if os.path.isfile(fp_output_file):
             gen_objects = jh.read(str(fp_output_file))
-            ''' 処理を効率化するためにidをkeyにした辞書型に変換。↓これでもとに戻る
+            ''' For efficiency, convert to a dict keyed by 'id'.
+            You can convert back with:
             gen_objects = list(existing_results.values())
             '''
             existing_results = {item['id']: item for item in gen_objects}  # id:items
@@ -212,14 +208,14 @@ class RolloutManager(object):
             seed_id = row['id']
             seed_dict = row.to_dict()  # "id", "question"
             current_item = results_dict.get(seed_id, {'id': seed_id})
-            current_item['question']= seed_dict.get('question', '')
+            current_item['question'] = seed_dict.get('question', '')
             results_dict[seed_id] = current_item
 
-            answers = current_item.get('answers', [])  # rollout済みの回答
+            answers = current_item.get('answers', [])  # previously rolled out answers
             current_count = len(answers)
 
-            ''' 1. 指定した回数までrolloutを実施 '''
-            # 進捗バーの初期化
+            ''' 1. Perform rollouts up to the specified count '''
+            # Initialize progress bar
             pbar = tqdm(
                 total=self._num_of_rollout,
                 initial=current_count,
@@ -233,10 +229,9 @@ class RolloutManager(object):
                 for processed in tqdm(batch_processor(seed_dict, manager_cfg.batch_size)):
                     if processed:
                         answers.extend(processed)
-                        # item = results_dict.get(seed_id, {'id': seed_id})
                         item = results_dict[seed_id]
-                        # rollout番号の追加
-                        answers = [ {**d, "rollout": i} for i, d in enumerate(answers, start=1)]
+                        # Add rollout index/number
+                        answers = [{**d, "rollout": i} for i, d in enumerate(answers, start=1)]
                         item['answers'] = answers
                         results_dict[seed_id] = item
                         gen_objects = list(results_dict.values())
@@ -244,23 +239,20 @@ class RolloutManager(object):
 
                 new_count = len(answers)
 
-                # 進捗バーを更新
                 pbar.update(new_count - current_count)
                 current_count = new_count
 
                 if current_count >= self._num_of_rollout:
-
                     break
 
-            # 進捗バーを完了
+            # Finalize/complete the progress bar
             gen_objects = list(results_dict.values())
             jh.write(gen_objects, str(fp_output_file))
             pbar.close()
-            
-        
-        ''' 2. flatな形式に変換して HFにpush'''
+
+        ''' 2. Convert to a flat format and push to Hugging Face (HF) '''
         if hf_cfg is not None and hf_cfg.repo_id:
-            # フラットな構造に変換
+            # Convert to a flat structure
             flattened_data = []
             for item in gen_objects:
                 for answer in item['answers']:
@@ -272,29 +264,19 @@ class RolloutManager(object):
                         'output': answer['output'],
                         'reasoning': answer['reasoning'],
                     })
-        
-            # データセットを作成
+
+            # Create a Dataset
             dataset = Dataset.from_list(flattened_data)
             dataset_dict = DatasetDict(
                 {"train": dataset},
             )
             push_to_hub(dataset_dict, hf_cfg)
-            
 
 
 if __name__ == "__main__":
     """
     python -m manager.rollout_manager
     """
-
-    # def fix_seed(seed):
-    #     random.seed(seed)
-    #     np.random.seed(seed)
-    #
-    #
-    # SEED = 46
-    # fix_seed(SEED)
-
 
     from logging import DEBUG, INFO, WARN, ERROR, basicConfig
 
@@ -313,13 +295,13 @@ if __name__ == "__main__":
         start_id=201,
         end_id=300,
     )
-    
+
     data_config = HfRolloutConfig(**test_cfg)
     rom(data_config)
 
-    # # huggingfaceの設定ファイルを作成（値を指定していない場合はpushしない）
-    # hf_repo_id = "tarona/MathXPhys_scored_v1"
-    # hf_config_name ="OB_PHYS_rollout"
-    # hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)
-    #
-    # rom(data_config, hf_cfg)
+    # Create Huggingface config file (It will not push if the config are not specified)
+    hf_repo_id = "tarona/MathXPhys_scored_v1"
+    hf_config_name = "OB_PHYS_rollout"
+    hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)
+
+    rom(data_config, hf_cfg)

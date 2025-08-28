@@ -22,9 +22,9 @@ logger.addHandler(NullHandler())
 @dataclass
 class HfSympySelfConsistencyConfig:
     """
-    huggingface dataset
+    Hugging Face dataset.
 
-    "id", "rollout", "answer_sympy", "reasoning"カラムが必要
+    Columns "id", "rollout", "answer_sympy", and "reasoning" are required.
 
     """
     output_dir: str
@@ -33,19 +33,18 @@ class HfSympySelfConsistencyConfig:
     end_id: Optional[int]
     start_id: int = 1
     seed_split: str = "train"
-    output_file_decoration: str = "_"  # 生成したファイルのファイル名に追加する文字列
-    batch_size: int = 1  # 生成処理を何個づつまとめて実施して保存するか（基本1で良い）
+    output_file_decoration: str = "_"  # String appended to generated filenames
+    batch_size: int = 1  # How many generations to process and save at once (default 1)
     seed_data_keys: Set[str] = field(default_factory=lambda: {"id", "rollout", "answer_sympy", "reasoning"})
 
 
 def group_jsonl_by_id(jsonl_data: List[Dict], group_key: str = "answers") -> List[Dict]:
     """
-    from manager.sympy_coincidence_counter import CoincidenceCounter
-    フラットなjsonlデータを {"id": x, "answers": [...]} 形式に変換
+    Convert flat jsonl data into {"id": x, "answers": [...]} format.
     """
     grouped = defaultdict(list)
     for entry in jsonl_data:
-        # "id" を先頭に置き、それ以外は元のキーをそのまま展開
+        # Place "id" at the front and keep other keys as-is
         grouped[entry["id"]].append({"id": entry["id"], **entry})
     return [{"id": k, group_key: v} for k, v in grouped.items()]
 
@@ -68,17 +67,15 @@ class SympySelfConsistencyManager(object):
 
     @staticmethod
     def update_or_append_efficient(original_list, new_list):
-        """
-        より効率的な方法（大きなリストの場合に有利）
-        """
-        # 辞書に変換（idをキーとして）
+        """More efficient method (beneficial for large lists)"""
+        # Convert to dict using 'id' as key
         item_dict = {item["id"]: item for item in original_list}
 
-        # 新しい要素で更新
+        # Update with new items
         for new_item in new_list:
             item_dict[new_item["id"]] = new_item
 
-        # 辞書をリストに戻す
+        # Convert dictionary back to list
         return list(item_dict.values())
 
     def file_handling(
@@ -100,10 +97,10 @@ class SympySelfConsistencyManager(object):
         if not fp_output_file.parent.exists():
             fp_output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # jsonファイルを読み書きするツール
+        # Tool for reading/writing JSON files
         jh = JsonHandler()
 
-        # データセットの読み込み
+        # Load dataset
         if seed_name:
             dfs = [load_dataset(seed_repo_id, name=n, split=seed_split).to_pandas() for n in seed_name]
             df = pd.concat(dfs, ignore_index=True)
@@ -128,7 +125,7 @@ class SympySelfConsistencyManager(object):
 
         if os.path.isfile(fp_output_file):
             gen_objects = jh.read(str(fp_output_file))
-            ''' 処理を効率化するためにidをkeyにした辞書型に変換。↓これでもとに戻る
+            ''' Convert to a dict keyed by id for efficiency. To reverse, use:
             gen_objects = list(existing_results.values())
             '''
             existing_results = {item['id']: item for item in gen_objects}  # id:items
@@ -138,19 +135,19 @@ class SympySelfConsistencyManager(object):
 
         # print(existing_results)
 
-        ''' pandas_dataframeを辞書型に変換し、さらに"id"keyで纏めた形に変換'''
+        '''Convert pandas dataframe to dict and group entries by the "id" key'''
         id_key_df = group_jsonl_by_id(df.to_dict('records'), group_key="answers")
 
         counter = CoincidenceCounter(id_key_df, group_key="answers", sympy_key="answer_sympy",
                                      leading_target_key="reasoning")
 
         consistent_data = []
-        for i in tqdm(range(start_id, end_id + 1)):
+        for i in tqdm(range(df['id'].min(), df['id'].max())):
             consistent_data = counter.update_base_json(target_id=i)
             # print(consistent_data [0].keys())  # dict_keys(['id', 'answers', 'rollout', 'question', 'answer', 'output', 'reasoning', 'answer_sympy', 'num_of_coincidences', 'num_of_rollout', 'consistent_rate']
             # print(consistent_data)
 
-            # ファイルから読み込んだデータに上書き
+            # Overwrite data read from file
             for add_item in consistent_data:
                 item_id = add_item['id']
                 # print(add_item)
@@ -162,11 +159,11 @@ class SympySelfConsistencyManager(object):
             # print(gen_objects)
             jh.write(gen_objects, str(fp_output_file))
 
-        # huggingfaceにpush
+        # Push to Hugging Face
         if hf_cfg is not None and hf_cfg.repo_id:
 
             ''' rollout_data
-             rolloutした全てのanswer '''
+             All answers from rollouts '''
             rollout_answers = [answer for item in gen_objects for answer in item["answers"]]
             df_rollout = pd.DataFrame(rollout_answers)
             # print(df_rollout.head())
@@ -178,12 +175,12 @@ class SympySelfConsistencyManager(object):
             push_to_hub(dataset_dict, rollout_hf_cfg)
 
             ''' leading_data
-             self consistency の値が最も高い回答をピックしたもの '''
+             Selected answers with the highest self-consistency score '''
             # keys_to_exclude = {'answers', 'rollout'}
-            keys_to_exclude = {'answers',}  # 'answers'は除外
+            keys_to_exclude = {'answers',}  # Exclude 'answers'
             leading_objects = [{k: v for k, v in d.items() if k not in keys_to_exclude} for d in gen_objects]
             df_leading = pd.DataFrame(leading_objects)
-            # 'rollout'を一番右に移動
+            # Move 'rollout' column to the far right
             cols = [col for col in df_leading.columns if col != 'rollout'] + ['rollout']
             df_leading = df_leading[cols]
             # print(df_leading.head())
@@ -229,7 +226,7 @@ if __name__ == "__main__":
     data_config = HfSympySelfConsistencyConfig(**test_cfg)
     # rom(data_config)
 
-    # huggingfaceの設定ファイルを作成（値を指定していない場合はpushしない）
+    # Create Huggingface config file (It will not push if the config are not specified)
     hf_repo_id = "tarona/MathXPhys_scored_v1"
     hf_config_name = "OB_PHYS_self_consistency"
     hf_cfg = HuggingHubConfig(repo_id=hf_repo_id, config_name=hf_config_name)
