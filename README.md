@@ -2,8 +2,7 @@
 
 ### Step 1 — Synthetic problem generation
 
-Synthesize new, complex problems by using problems from different fields as seeds.
-In this example, 1,000 synthetic problems were generated using mathematical and physics problems as seeds.
+By combining problems from different fields, we generate new interdisciplinary problems that are cross-domain in nature.  In this example, 1,000 synthetic problems were generated using mathematical and physics problems as seeds.
 
 - Generate drafts for cross-domain problems by using problems from different fields as seeds.
 - Apply methods such as [evol-instruct](https://arxiv.org/abs/2306.08568) and [WizardMath](https://arxiv.org/abs/2308.09583) to refine drafts.
@@ -20,7 +19,7 @@ To quantitatively assess the consistency of the final answers obtained through r
 
 ### Step 4 — Verification of self-consistency
 
-Based on self-consistency scores, we selected the most appropriate final answer for each question.
+Based on self-consistency rates, we selected the most appropriate final answer for each question.
 
 ## Details of each step
 
