@@ -12,7 +12,7 @@ In this example, 1,000 synthetic problems were generated using mathematical and 
 ### Step 2 — Answer generation
 
 We performed 10 rollouts per question to estimate answers to the synthetic problems, collecting reasoning tokens and final answers.  
-(Currently, rollouts have been completed only for IDs 1–200 out of the 1,000 synthetic problems.)
+(Currently, rollouts have been completed only for IDs 1–200 out of the 1,000 synthetic problems.  [dataset](https://huggingface.co/datasets/tarona/MathXPhys_scored_v1))
 
 ### Step 3 — Converting LaTeX-formatted answers to SymPy format
 
