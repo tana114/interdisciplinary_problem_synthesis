@@ -108,7 +108,7 @@ class ApiClientBase(metaclass=ABCMeta):
                 return None
 
         except openai.RateLimitError as e:
-            delay = 10
+            delay = 15
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
             ApiClientBase.message_counter -= 1
@@ -154,7 +154,7 @@ class ApiClientBase(metaclass=ABCMeta):
                 return None
 
         except openai.RateLimitError as e:
-            delay = 10
+            delay = 15
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
             ApiClientBase.parse_counter -= 1
