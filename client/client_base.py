@@ -102,14 +102,21 @@ class ApiClientBase(metaclass=ABCMeta):
 
             response = self._client.chat.completions.create(**merged_dict)
 
-            if response:
+            if response and hasattr(response, 'choices'):
                 return response.choices[0].message
             else:
                 return None
 
         except openai.RateLimitError as e:
-            delay = 15
+            delay = 30
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
+            time.sleep(delay)
+            ApiClientBase.message_counter -= 1
+            return self.message(prompt_elements, **kwargs)
+
+        except openai.InternalServerError as e:
+            delay = 300
+            logger.warning(f"InternalServerError : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
             ApiClientBase.message_counter -= 1
             return self.message(prompt_elements, **kwargs)
@@ -147,15 +154,22 @@ class ApiClientBase(metaclass=ABCMeta):
             # print(merged_dict)
             response = self._client.chat.completions.parse(**merged_dict)
 
-            if response:
+            if response and hasattr(response, 'choices'):
                 content = cast(BaseModel, response.choices[0].message.parsed) 
                 return content.model_dump()
             else:
                 return None
 
         except openai.RateLimitError as e:
-            delay = 15
+            delay = 30
             logger.warning(f"Too Many Requests : {e}.\n Retrying in {delay} seconds...")
+            time.sleep(delay)
+            ApiClientBase.parse_counter -= 1
+            return self.parse(prompt_elements, **kwargs)
+
+        except openai.InternalServerError as e:
+            delay = 300
+            logger.warning(f"InternalServerError : {e}.\n Retrying in {delay} seconds...")
             time.sleep(delay)
             ApiClientBase.parse_counter -= 1
             return self.parse(prompt_elements, **kwargs)
