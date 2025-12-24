@@ -199,7 +199,7 @@ class XmlHandler(FileHandler):
             XmlEt.ElementTree(data).write(tmp, encoding=self.encoding, xml_declaration=True)
 
 
-# --- 5. Domain Analyzers ---
+# --- Domain Analyzers ---
 
 class PromptConfigAnalyzer:
     """
