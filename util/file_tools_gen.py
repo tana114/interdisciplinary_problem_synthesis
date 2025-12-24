@@ -24,7 +24,7 @@ SOFTWARE.
 
 import json
 import csv
-# import yaml
+import yaml
 import logging
 import re
 import xml.etree.ElementTree as XmlEt
@@ -32,39 +32,20 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Any, Iterator, Iterable, Union, NamedTuple, Optional
 from collections import OrderedDict
+from contextlib import contextmanager
+
+# --- Logging Setup ---
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
-# --- 1. Unified Exception ---
+# --- Unified Exception ---
 class FileProcessingError(Exception):
     """Base exception for all file operation and parsing errors in this library."""
     pass
 
 
-# --- 2. Domain Models ---
-class Size(NamedTuple):
-    width: int
-    height: int
-    depth: int
-
-
-class Bndbox(NamedTuple):
-    xmin: float
-    ymin: float
-    xmax: float
-    ymax: float
-
-
-class VocXmlDataset(NamedTuple):
-    size: Size
-    objects: List[tuple]  # List of (label_name, Bndbox)
-
-
-# --- 3. Logging Setup ---
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-
-
-# --- 4. Format Handlers ---
+# --- Format Handlers ---
 
 class FileHandler(ABC):
     """Abstract base class for file operations with common validation logic."""
@@ -87,8 +68,26 @@ class FileHandler(ABC):
         except Exception as e:
             raise FileProcessingError(f"IO Error at '{path.as_posix()}': {e}") from e
 
-    def _validate_suffix(self, file_path: Path, valid_suffixes: List[str]) -> None:
-        """Validates file extensions (case-insensitive)."""
+    @contextmanager
+    def _atomic_write_path(self, file_path: Path):
+        """Context manager that writes to a temporary file and replaces only if successful."""
+        path = Path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            yield temp_path  # For the purpose of temporary transfer within the with statement using yield.
+            temp_path.replace(path)
+        except Exception as e:
+            if temp_path.exists():
+                temp_path.unlink()
+            raise FileProcessingError(f"Atomic write failed for {path}: {e}") from e
+
+    @staticmethod
+    def _validate_suffix(file_path: Path, valid_suffixes: List[str]) -> None:
+        """
+        Validates file extensions (case-insensitive).
+        This is a static method as it does not depend on instance state.
+        """
         allowed = [s.lower() if s.startswith('.') else f'.{s.lower()}' for s in valid_suffixes]
         if file_path.suffix.lower() not in allowed:
             raise FileProcessingError(
@@ -97,81 +96,89 @@ class FileHandler(ABC):
 
 
 class JsonHandler(FileHandler):
-    def read(self, file_name: Union[str, Path]) -> Any:
-        path = Path(file_name)
+    def read(self, file_path: Union[str, Path]) -> Any:
+        path = Path(file_path)
         with self._safe_open(path, 'r') as f:
             try:
                 return json.load(f)
             except json.JSONDecodeError as e:
-                raise FileProcessingError(f"JSON Decode Error in {path.name}: {e}") from e
+                raise FileProcessingError(f"JSON Decode Error in {path.name}: {e}")
 
-    def write(self, data: Any, file_name: Union[str, Path], indent: int = 2) -> None:
-        path = Path(file_name)
-        with self._safe_open(path, 'w') as f:
-            json.dump(data, f, ensure_ascii=False, indent=indent)
+    def write(self, data: Any, file_path: Union[str, Path], indent: int = 2) -> None:
+        path = Path(file_path)
+        with self._atomic_write_path(path) as tmp:
+            with tmp.open('w', encoding=self.encoding) as f:
+                json.dump(data, f, ensure_ascii=False, indent=indent)
 
 
 class JsonlHandler(FileHandler):
-    """Handles JSON Lines format with optional fault tolerance."""
-
-    def read(self, file_name: Union[str, Path], ignore_errors: bool = False) -> Iterator[Dict]:
-        path = Path(file_name)
+    def read(self, file_path: Union[str, Path]) -> List[Dict]:
+        path = Path(file_path)
+        results = []
         with self._safe_open(path, 'r') as f:
             for line_num, line in enumerate(f, 1):
                 clean_line = line.strip()
-                if not clean_line:
-                    continue
+                if not clean_line: continue
                 try:
-                    yield json.loads(clean_line)
+                    results.append(json.loads(clean_line))
                 except json.JSONDecodeError as e:
-                    if ignore_errors:
-                        logger.warning(f"Skipping malformed JSON at {path.name}:{line_num}: {e}")
-                        continue
-                    raise FileProcessingError(f"JSONL Decode Error at line {line_num}: {e}") from e
+                    raise FileProcessingError(f"JSONL Error at {path.name}:{line_num}: {e}")
+        return results
 
-    def write(self, data: Iterable[Dict], file_name: Union[str, Path]) -> None:
-        path = Path(file_name)
-        with self._safe_open(path, 'w') as f:
-            for entry in data:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    def write(self, data: Iterable[Dict], file_path: Union[str, Path]) -> None:
+        path = Path(file_path)
+        with self._atomic_write_path(path) as tmp:
+            with tmp.open('w', encoding=self.encoding) as f:
+                for entry in data:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 class CsvHandler(FileHandler):
-    def read(self, file_path: Union[str, Path]) -> Iterator[List[str]]:
+    def read(self, file_path: Union[str, Path]) -> List[List[str]]:
         path = Path(file_path)
         with self._safe_open(path, 'r', newline='') as f:
-            yield from csv.reader(f)
+            return list(csv.reader(f))
 
     def write(self, data: Iterable[Iterable[Any]], file_path: Union[str, Path]) -> None:
         path = Path(file_path)
-        with self._safe_open(path, 'w', newline='') as f:
-            csv.writer(f).writerows(data)
+        with self._atomic_write_path(path) as tmp:
+            with tmp.open('w', encoding=self.encoding, newline='') as f:
+                csv.writer(f).writerows(data)
 
 
-# class YamlHandler(FileHandler):
-#     def read(self, file_path: Union[str, Path]) -> Any:
-#         path = Path(file_path)
-#         with self._safe_open(path, 'r') as f:
-#             return yaml.safe_load(f)
-#
-#     def write(self, data: Any, file_path: Union[str, Path]) -> None:
-#         path = Path(file_path)
-#         with self._safe_open(path, 'w') as f:
-#             yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False)
+class YamlHandler(FileHandler):
+    def __init__(self, encoding: str = 'utf-8', allow_unicode: bool = True, sort_keys: bool = False):
+        super().__init__(encoding)
+        self.allow_unicode = allow_unicode
+        self.sort_keys = sort_keys
+
+    def read(self, file_path: Union[str, Path]) -> Any:
+        path = Path(file_path)
+        with self._safe_open(path, 'r') as f:
+            try:
+                return yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                raise FileProcessingError(f"YAML Load Error in {path.name}: {e}")
+
+    def write(self, data: Any, file_path: Union[str, Path]) -> None:
+        path = Path(file_path)
+        with self._atomic_write_path(path) as tmp:
+            with tmp.open('w', encoding=self.encoding) as f:
+                yaml.safe_dump(data, f, allow_unicode=self.allow_unicode,
+                               sort_keys=self.sort_keys, default_flow_style=False)
 
 
 class TxtHandler(FileHandler):
-    def read(self, file_path: Union[str, Path]) -> Iterator[str]:
+    def read(self, file_path: Union[str, Path]) -> str:
         path = Path(file_path)
         with self._safe_open(path, 'r') as f:
-            for line in f:
-                yield line.rstrip('\n\r')
+            return f.read()
 
-    def write(self, data: Iterable[str], file_path: Union[str, Path]) -> None:
+    def write(self, data: str, file_path: Union[str, Path]) -> None:
         path = Path(file_path)
-        with self._safe_open(path, 'w') as f:
-            for line in data:
-                f.write(f"{line}\n")
+        with self._atomic_write_path(path) as tmp:
+            with tmp.open('w', encoding=self.encoding) as f:
+                f.write(data)
 
 
 class XmlHandler(FileHandler):
@@ -182,115 +189,133 @@ class XmlHandler(FileHandler):
             with self._safe_open(path, 'r') as f:
                 return XmlEt.parse(f).getroot()
         except XmlEt.ParseError as e:
-            raise FileProcessingError(f"XML Parse Error in {path.name}: {e}") from e
+            raise FileProcessingError(f"XML Parse Error in {path.name}: {e}")
 
     def write(self, data: XmlEt.Element, file_path: Union[str, Path], pretty_print: bool = True) -> None:
         path = Path(file_path)
         if pretty_print:
             XmlEt.indent(data, space="  ", level=0)
-        try:
-            XmlEt.ElementTree(data).write(path, encoding=self.encoding, xml_declaration=True)
-        except Exception as e:
-            raise FileProcessingError(f"Failed to write XML to {path.name}: {e}") from e
+        with self._atomic_write_path(path) as tmp:
+            XmlEt.ElementTree(data).write(tmp, encoding=self.encoding, xml_declaration=True)
 
 
 # --- 5. Domain Analyzers ---
 
-class VocXmlAnalyzer:
-    """Analyzer for Pascal VOC XML format with strict schema validation."""
+class PromptConfigAnalyzer:
+    """
+    Analyzer for prompt version management and loading.
+    Resolves specific prompt configuration files by referencing a central 'registry.yaml'.
 
-    def __init__(self, handler: Optional[XmlHandler] = None):
-        self._handler = handler or XmlHandler()
+    Example structure of 'registry.yaml':
+    ----------------------------------
+    versions:
+      - type: "math_phys_v0"
+        version: "0.0"
+        file: "versions/math_phys_v0.0.yaml"
+        status: "deprecated"
+        description: "Initial version for problem generation."
 
-    def _safe_cast_value(self, element: Optional[XmlEt.Element], tag: str, cast_type: type, default: Any = 0) -> Any:
-        """Helper to safely extract and cast XML text content, handling empty tags and malformed strings."""
-        if element is None:
-            return default
-        text = element.findtext(tag)
-        if text is None or text.strip() == "":
-            return default
-        try:
-            return cast_type(text.strip())
-        except (ValueError, TypeError):
-            return default
+      - type: "math_phys_v1"
+        version: "1.0"
+        file: "versions/math_phys_v1.0.yaml"
+        status: "active"
+        description: "Optimized version with improved reasoning."
 
-    def read(self, file_path: Union[str, Path]) -> VocXmlDataset:
-        root = self._handler.read(file_path)
-        try:
-            xml_size = root.find('size')
-            if xml_size is None:
-                raise FileProcessingError("Required tag <size> is missing.")
+    Example structure of 'versions/math_phys_v1.0.yaml':
+    ----------------------------------
+    metadata:
+      type: "math_phys_v1"
+      version: "1.0"
+      description: "math_phys_problem_gen_v1.py:"
 
-            size_obj = Size(
-                width=self._safe_cast_value(xml_size, 'width', int),
-                height=self._safe_cast_value(xml_size, 'height', int),
-                depth=self._safe_cast_value(xml_size, 'depth', int)
+    prompts:
+      system: |
+        You are an expert at devising complex mathematical ...
+
+      user_template: |
+        Some example problem-solution pairs are given to facilitate your ...
+    """
+
+    def __init__(
+            self,
+            prompts_dir: Union[str, Path],
+            registry_file_name: str = "registry.yaml",
+            yaml_handler: Optional[YamlHandler] = None,
+    ):
+        """
+        Initializes the analyzer with a prompt directory and an optional YAML handler.
+
+        Args:
+            prompts_dir: Path to the directory containing 'registry.yaml' and prompt files.
+            yaml_handler: Optional instance of YamlHandler for file operations.
+        """
+        self.prompts_dir = Path(prompts_dir)
+        self._yaml = yaml_handler or YamlHandler()
+        self.registry_path = self.prompts_dir / registry_file_name
+
+    def _load_registry(self) -> Dict[str, Any]:
+        """
+        Internal method to load the prompt registry file.
+
+        Raises:
+            FileProcessingError: If the registry file does not exist.
+        """
+        if not self.registry_path.exists():
+            raise FileProcessingError(f"Registry file not found at: {self.registry_path}")
+        return self._yaml.read(self.registry_path)
+
+    def load_config(self, version: str, prompt_type: str = "generate") -> Dict[str, Any]:
+        """
+        Loads prompt configurations for the specified version and type.
+
+        Args:
+            version: The version string of the prompt (e.g., '1.0').
+            prompt_type: The category/type of the prompt (default: 'generate').
+
+        Returns:
+            Dict[str, Any]: The contents of the resolved prompt configuration file.
+
+        Raises:
+            FileProcessingError: If the version/type is not found or the config file is missing.
+        """
+        if not version:
+            raise FileProcessingError("Prompt version must be specified.")
+
+        registry = self._load_registry()
+
+        # Search for entry matching both version and type
+        versions = registry.get('versions', [])
+        version_info = next(
+            (v for v in versions
+             if str(v.get('version')) == str(version) and v.get('type', 'generate') == prompt_type),
+            None
+        )
+
+        if not version_info:
+            available = [(v.get('version'), v.get('type', 'generate')) for v in versions]
+            raise FileProcessingError(
+                f"Version '{version}' with type '{prompt_type}' not found in registry. "
+                f"Available versions: {available}"
             )
 
-            objects = []
-            for obj in root.findall('object'):
-                name = obj.findtext('name', 'unknown')
-                bnd = obj.find('bndbox')
-                if bnd is not None:
-                    bbox = Bndbox(
-                        xmin=self._safe_cast_value(bnd, 'xmin', float),
-                        ymin=self._safe_cast_value(bnd, 'ymin', float),
-                        xmax=self._safe_cast_value(bnd, 'xmax', float),
-                        ymax=self._safe_cast_value(bnd, 'ymax', float)
-                    )
-                    objects.append((name, bbox))
-            return VocXmlDataset(size=size_obj, objects=objects)
-        except Exception as e:
-            if isinstance(e, FileProcessingError): raise
-            raise FileProcessingError(f"Schema validation failed for '{Path(file_path).name}': {e}") from e
+        # Resolve the specific configuration file path
+        config_path = self.prompts_dir / version_info['file']
+        if not config_path.exists():
+            raise FileProcessingError(f"Prompt config file not found: {config_path}")
 
+        config = self._yaml.read(config_path)
 
-class PbtxtAnalyzer:
-    """
-    Robust parser for Protobuf Text Format (label_map.pbtxt).
-    Uses regex to handle varied spacing, quotes, and block structures.
-    """
-    # Regex to capture key-value pairs like id: 1 or name: "class_a"
-    _KV_PATTERN = re.compile(r'(\w+)\s*:\s*["\']?([^"\']+)["\']?')
+        # Log loading details using the shared logger
+        logger.info(f"Successfully loaded prompt version: {version} (Type: {prompt_type})")
+        logger.info(f"  Status: {version_info.get('status')}")
+        logger.info(f"  Description: {version_info.get('description')}")
 
-    def __init__(self, handler: Optional[TxtHandler] = None):
-        self._handler = handler or TxtHandler()
-
-    def read(self, file_path: Union[str, Path]) -> OrderedDict:
-        path = Path(file_path)
-        items = OrderedDict()
-        current_id: Optional[int] = None
-        current_name: Optional[str] = None
-
-        # Parse line by line to maintain low memory footprint
-        for line in self._handler.read(path):
-            line = line.strip()
-            # Ignore comments and block braces
-            if line.startswith('#') or line in ('item {', '}'):
-                continue
-
-            match = self._KV_PATTERN.search(line)
-            if match:
-                key, value = match.groups()
-                if key == 'id':
-                    try:
-                        current_id = int(value)
-                    except ValueError:
-                        continue
-                elif key == 'name':
-                    current_name = value
-
-            # Once both id and name are found, commit to dictionary
-            if current_id is not None and current_name is not None:
-                items[current_name] = current_id
-                current_id, current_name = None, None
-
-        return items
+        return config
 
 
 if __name__ == "__main__":
     """
-    python -m util.file_tools
+    python -m util.file_tools_gen
     """
 
     from logging import DEBUG, INFO, basicConfig
@@ -330,7 +355,7 @@ if __name__ == "__main__":
         }
     ]
 
-    jl_h.write(dict_list, file_name=jl_file)
+    jl_h.write(dict_list, file_path=jl_file)
 
     jl_data = jl_h.read(jl_file)
     print(list(jl_data))
@@ -341,9 +366,18 @@ if __name__ == "__main__":
 
     dict_data = {"data": dict_list}
 
-    j_h.write(dict_data, file_name=j_file)
+    j_h.write(dict_data, file_path=j_file)
 
     j_data = j_h.read(j_file)
     print(j_data)
 
-
+    """ test for yaml prompt analyzer """
+    prompts_dir = Path("./client/concrete/prompts")
+    analyzer = PromptConfigAnalyzer(prompts_dir)
+    try:
+        config = analyzer.load_config(version='1.0', prompt_type="math_phys_v1")
+        system_prompt = config['prompts']['system']
+        user_template = config['prompts']['user_template']
+        print(f"Loaded: {system_prompt[:30]}...")
+    except FileProcessingError as e:
+        print(f"Error: {e}")
