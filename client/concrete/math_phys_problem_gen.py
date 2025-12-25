@@ -1,19 +1,27 @@
 from typing import Generator, Dict, Optional, Literal, TypedDict, List, Any, TypeVar, Generic
 import json
-
+from pathlib import Path
 from pydantic import BaseModel, Field
 
-from client.concrete.prompt_loader import load_prompt_config
+# from client.concrete.prompt_loader import load_prompt_config
 from client.client_base import ApiClientBase
+from util.file_tools_gen import PromptConfigAnalyzer
 
 from logging import getLogger, NullHandler
 
 logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
-prompt_config = load_prompt_config(version='1.0', prompt_type="math_phys_v1")
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+prompt_analyzer = PromptConfigAnalyzer(PROMPTS_DIR)
+prompt_config = prompt_analyzer.load_config(version='1.0', prompt_type="math_phys_v1")
+
 SYSTEM_PROMPT_FORMAT = prompt_config['prompts']['system']
 USER_PROMPT_FORMAT = prompt_config['prompts']['user_template']
+
+# prompt_config = load_prompt_config(version='1.0', prompt_type="math_phys_v1")
+# SYSTEM_PROMPT_FORMAT = prompt_config['prompts']['system']
+# USER_PROMPT_FORMAT = prompt_config['prompts']['user_template']
 
 ''' SYSTEM_PROMPT_FORMAT
 {sample_num}は、few-shotとして渡すサンプルの数
@@ -160,9 +168,9 @@ if __name__ == "__main__":
 
     gen = MathPhysProblemGenerator(
         # model_name="deepseek/deepseek-r1:free",
-        model_name="deepseek/deepseek-r1-0528:free",
+        # model_name="deepseek/deepseek-r1-0528:free",
         # model_name="deepseek/deepseek-chat-v3-0324:free",
-        # model_name="deepseek/deepseek-r1-0528",
+        model_name="deepseek/deepseek-r1-0528",
         # model_name="deepseek/deepseek-chat-v3-0324",
         few_shot_num=3,
     )

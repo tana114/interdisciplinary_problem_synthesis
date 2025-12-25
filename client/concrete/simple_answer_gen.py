@@ -1,21 +1,27 @@
-
 from typing import Generator, Dict, Optional, Literal, TypedDict, List, Any, TypeVar, Generic
 
 from pydantic import BaseModel, Field
+from pathlib import Path
 
-from client.concrete.prompt_loader import load_prompt_config
+# from client.concrete.prompt_loader import load_prompt_config
 from client.client_base import ApiClientBase
+from util.file_tools_gen import PromptConfigAnalyzer
 
 from logging import getLogger, NullHandler
 
 logger = getLogger(__name__)
 logger.addHandler(NullHandler())
 
-prompt_config = load_prompt_config(version='1.0', prompt_type="simple_answer_v1")
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+prompt_analyzer = PromptConfigAnalyzer(PROMPTS_DIR)
+prompt_config = prompt_analyzer.load_config(version='1.0', prompt_type="simple_answer_v1")
+
 SYSTEM_PROMPT_FORMAT = prompt_config['prompts']['system']
 USER_PROMPT_FORMAT = prompt_config['prompts']['user_template']
 
-
+# prompt_config = load_prompt_config(version='1.0', prompt_type="simple_answer_v1")
+# SYSTEM_PROMPT_FORMAT = prompt_config['prompts']['system']
+# USER_PROMPT_FORMAT = prompt_config['prompts']['user_template']
 
 class SimpleAnswerGenerator(ApiClientBase):
 
@@ -35,12 +41,10 @@ class SimpleAnswerGenerator(ApiClientBase):
         }
 
         return config
-    
-    
+
     def _create_parse_config(self, prompt_elements: Dict):
         pass
 
-    
 
 if __name__ == "__main__":
     """
@@ -78,5 +82,3 @@ if __name__ == "__main__":
         print(message.reasoning)
         print('*' * 60)
         print(message.content)
-
-

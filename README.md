@@ -45,6 +45,8 @@ We used 999 problems from the [PHYSICS: A Comprehensive Benchmark for Advanced P
 
 ## Usage
 
+** Confirmed in December 2025.** Due to specification changes in OpenRouter, we have confirmed that the “free” version can no longer handle certain processes such as perse. I hope the previous specification will be restored.  
+
 Create a `.env` file and enter your API key as shown below (OpenRouter recommended):
 
 ```

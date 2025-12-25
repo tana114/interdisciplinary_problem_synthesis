@@ -206,7 +206,7 @@ class PromptConfigAnalyzer:
     Analyzer for prompt version management and loading.
     Resolves specific prompt configuration files by referencing a central 'registry.yaml'.
 
-    Example structure of 'registry.yaml':
+    Example structure of './registry.yaml':
     ----------------------------------
     versions:
       - type: "math_phys_v0"
@@ -221,7 +221,7 @@ class PromptConfigAnalyzer:
         status: "active"
         description: "Optimized version with improved reasoning."
 
-    Example structure of 'versions/math_phys_v1.0.yaml':
+    Example structure of './versions/math_phys_v1.0.yaml':
     ----------------------------------
     metadata:
       type: "math_phys_v1"

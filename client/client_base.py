@@ -237,31 +237,32 @@ if __name__ == "__main__":
     # basicConfig(level=WARN)
     basicConfig(level=INFO)
 
-    client = SympleApiClient(model_name="deepseek/deepseek-r1-0528:free")
-
     question = "What is 1234 * 5678?"
 
     inst = {
         "question": question,
     }
 
+    # client = SympleApiClient(model_name="deepseek/deepseek-r1-0528:free")
     # message = client.message(
     #     inst,
     #     temperature=0.6,
     #     top_p=0.95,
     # )
-
     # print(type(message))
     # print(message)
     # print(message.reasoning)
     # print('*' * 60)
     # print(message.content)
 
+    '''
+    In December 2025, we confirmed that the “free” version no longer supports Perse processing.
+    '''
+    client = SympleApiClient(model_name="deepseek/deepseek-r1-0528")
     parse = client.parse(
         inst,
         temperature=0.6,
         top_p=0.95,
     )
-
     print(type(parse))
     print(parse)
